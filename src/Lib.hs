@@ -3,6 +3,7 @@
 module Lib where
 
 import Data.Functor (void)
+import Data.List
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void
@@ -15,16 +16,18 @@ type Parser = Parsec Void Text
 newtype Name = Name Text
   deriving Show
 
-type KeyValue = (Text, Text)
+newtype Contact = Contact Name
+  deriving Show
 
-vcardParser :: Parser [KeyValue]
+vcardParser :: Parser Contact
 vcardParser = do
   string "BEGIN:VCARD" *> eol
-  someTill contentline (string "END:VCARD" *> eol)
+  keyValues <- someTill contentline (string "END:VCARD" *> eol)
+  let (Just fName) = snd <$> find ((== "FN") . fst) keyValues
+  pure . Contact . Name $ fName
 
   where
-    --fn = (string "FN:" *> some printChar) <?> "formatted name"
-    contentline :: Parser KeyValue
+    contentline :: Parser (Text, Text)
     contentline = do
       name <- name
       char ':'
@@ -35,8 +38,8 @@ vcardParser = do
     name = some $ alphaNumChar <|> anySingleBut ':' -- oneOf ['-', '.', ';', '=']
     value = many printChar
 
-vcardsParser :: Parser Int
-vcardsParser = length <$> some vcardParser
+vcardsParser :: Parser [Contact]
+vcardsParser = some vcardParser <* eof
 
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"
