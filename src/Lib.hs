@@ -6,6 +6,7 @@ import Data.Functor (void)
 import Data.List
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Time.Calendar
 import Data.Void
 
 import Text.Megaparsec
@@ -15,6 +16,18 @@ type Parser = Parsec Void Text
 
 newtype Name = Name Text
   deriving Show
+
+newtype Birthday = Birthday Day -- (MonthOfYear, DayOfMonth)
+  deriving Show
+
+birthdayParser :: Parser Birthday
+birthdayParser = do
+  year <- read <$> count 4 digitChar <?> "year"
+  optional $ char '-'
+  month <- read <$> count 2 digitChar <?> "month"
+  optional $ char '-'
+  day <- read <$> count 2 digitChar <?> "day"
+  pure . Birthday $ fromGregorian year month day
 
 newtype Contact = Contact Name
   deriving Show

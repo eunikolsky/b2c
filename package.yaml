@@ -27,6 +27,7 @@ library:
   source-dirs: src
   dependencies:
     - megaparsec
+    - time
 
 executables:
   b2c-exe:
