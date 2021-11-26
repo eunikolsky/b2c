@@ -4,6 +4,7 @@ module Lib where
 
 import Data.Functor (void)
 import Data.List
+import qualified Data.List.NonEmpty as NE
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Time.Calendar
@@ -55,7 +56,7 @@ birthdayParser maybeExpectedYear = do
     Just year -> Full $ fromGregorian year month day
     Nothing -> Partial month day
 
-newtype Contact = Contact Name
+newtype Contact = Contact (Name, Birthday)
   deriving Show
 
 vcardParser :: Parser Contact
@@ -63,7 +64,11 @@ vcardParser = do
   string "BEGIN:VCARD" *> eol
   keyValues <- someTill contentline (string "END:VCARD" *> eol)
   let (Just fName) = snd <$> find ((== "FN") . fst) keyValues
-  pure . Contact . Name $ fName
+  let (Just bDay) = snd <$> find ((== "BDAY") . fst) keyValues
+  let bDayResult = parse (birthdayParser Nothing) "" bDay
+  case bDayResult of
+    Left errorBundle -> parseError . NE.head . bundleErrors $ errorBundle
+    Right bDay -> pure $ Contact (Name fName, bDay)
 
   where
     contentline :: Parser (Text, Text)
