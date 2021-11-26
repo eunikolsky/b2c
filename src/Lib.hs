@@ -12,22 +12,48 @@ import Data.Void
 import Text.Megaparsec
 import Text.Megaparsec.Char
 
+-- https://github.com/haskell/time/commit/c69d1bd9b06d809f69fec8504896d0834d91476e
+-- #if !MIN_VERSION_time(1,11,0)
+-- `#if` doesn't work: `error on input ‘#’`
+type Year = Integer
+type MonthOfYear = Int
+type DayOfMonth = Int
+-- #endif
+
 type Parser = Parsec Void Text
 
 newtype Name = Name Text
   deriving Show
 
-newtype Birthday = Birthday Day -- (MonthOfYear, DayOfMonth)
+data Birthday
+  = Full Day
+  | Partial MonthOfYear DayOfMonth
   deriving Show
 
-birthdayParser :: Parser Birthday
-birthdayParser = do
-  year <- read <$> count 4 digitChar <?> "year"
+-- If a year is passed, it should be parsed and will then be ignored because
+-- it's known to be a placeholder. The vCard property looks like this:
+-- `BDAY;X-APPLE-OMIT-YEAR=1604:1604-01-01`
+-- https://github.com/nextcloud/server/issues/3084
+birthdayParser :: Maybe Year -> Parser Birthday
+birthdayParser maybeExpectedYear = do
+  maybeYear <- case maybeExpectedYear of
+    Just expectedYear -> do
+      let expectedYearString = show expectedYear
+      string (T.pack expectedYearString) <?> ("year " <> expectedYearString)
+      pure Nothing
+
+    Nothing -> do
+      year <- read <$> count 4 digitChar <?> "year"
+      pure . Just $ year
+
   optional $ char '-'
   month <- read <$> count 2 digitChar <?> "month"
   optional $ char '-'
   day <- read <$> count 2 digitChar <?> "day"
-  pure . Birthday $ fromGregorian year month day
+
+  pure $ case maybeYear of
+    Just year -> Full $ fromGregorian year month day
+    Nothing -> Partial month day
 
 newtype Contact = Contact Name
   deriving Show
