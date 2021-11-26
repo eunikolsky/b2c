@@ -1,10 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Lib where
 
+import Control.Monad.Trans.Maybe
 import Data.Functor (void)
 import Data.List
 import qualified Data.List.NonEmpty as NE
+import Data.Maybe (catMaybes)
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Time.Calendar
@@ -59,15 +62,17 @@ birthdayParser maybeExpectedYear = do
 newtype Contact = Contact (Name, Birthday)
   deriving Show
 
-vcardParser :: Parser Contact
-vcardParser = do
-  string "BEGIN:VCARD" *> eol
-  keyValues <- someTill contentline (string "END:VCARD" *> eol)
+vcardParser :: Parser (Maybe Contact)
+vcardParser = runMaybeT $ do
+  -- Parser () => Parser (Maybe ()) => MaybeT Parser ()
+  MaybeT $ fmap Just $ string "BEGIN:VCARD" *> eol
+  keyValues <- MaybeT $ fmap Just $ someTill contentline (string "END:VCARD" *> eol)
   let (Just fName) = snd <$> find ((== "FN") . fst) keyValues
-  let (Just bDay) = snd <$> find ((== "BDAY") . fst) keyValues
+  (bDay :: T.Text) <- MaybeT $ pure $ snd <$> find ((== "BDAY") . fst) keyValues
   let bDayResult = parse (birthdayParser Nothing) "" bDay
   case bDayResult of
-    Left errorBundle -> parseError . NE.head . bundleErrors $ errorBundle
+    -- TODO adjust the error position according to the original parser
+    Left errorBundle -> MaybeT . parseError . NE.head . bundleErrors $ errorBundle
     Right bDay -> pure $ Contact (Name fName, bDay)
 
   where
@@ -83,7 +88,9 @@ vcardParser = do
     value = many printChar
 
 vcardsParser :: Parser [Contact]
-vcardsParser = some vcardParser <* eof
+vcardsParser = do
+  vcards <- some vcardParser <* eof
+  pure $ catMaybes vcards
 
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"

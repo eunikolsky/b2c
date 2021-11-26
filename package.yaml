@@ -28,6 +28,7 @@ library:
   dependencies:
     - megaparsec
     - time
+    - transformers
 
 executables:
   b2c-exe:
