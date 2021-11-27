@@ -3,6 +3,7 @@
 
 module Lib where
 
+import Control.Monad (guard)
 import Control.Monad.Trans.Maybe
 import Data.Char (ord)
 import Data.Functor (void)
@@ -15,6 +16,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Time.Calendar
 import Data.Void
+import Text.Read (readMaybe)
 
 import Text.Megaparsec
 import Text.Megaparsec.Char
@@ -98,9 +100,14 @@ vcardParser = runMaybeT $ do
   keyValues <- MaybeT $ fmap Just $ someTill contentline (string "END:VCARD" *> eol)
 
   let (Just fName) = clValue <$> find ((== "FN") . clName) keyValues
-  (bDay :: T.Text) <- MaybeT $ pure $ clValue <$> find ((== "BDAY") . clName) keyValues
+  (bDayLine :: VCContentLine) <- MaybeT $ pure $ find ((== "BDAY") . clName) keyValues
+  let { maybeBDayOmittedYear = do
+    param <- clParam bDayLine
+    guard $ fst param == "X-APPLE-OMIT-YEAR"
+    readMaybe @Integer . T.unpack . snd $ param
+  }
 
-  let bDayResult = parse (birthdayParser Nothing) "" bDay
+  let bDayResult = parse (birthdayParser maybeBDayOmittedYear) "" (clValue bDayLine)
   case bDayResult of
     -- TODO adjust the error position according to the original parser
     Left errorBundle -> MaybeT . parseError . NE.head . bundleErrors $ errorBundle
