@@ -156,7 +156,7 @@ vcardParser = runMaybeT $ do
       -- <?> "contentline"
 
     name = some $ alphaNumChar <|> char '-' -- satisfy (\c -> c /= ':' && c /= ';') -- oneOf ['-', '.', ';', '=']
-    value = many $ char ' ' <|> satisfy (\c -> ord c >= 0x21 && ord c <= 0x7e) --printChar
+    value = many printChar
     group = name
     --   SAFE-CHAR    = WSP / %x21 / %x23-2B / %x2D-39 / %x3C-7E / NON-ASCII
     --           ; Any character except CTLs, DQUOTE, ";", ":", ","
