@@ -148,9 +148,13 @@ vcardParser = runMaybeT $ do
       pos <- getSourcePos
       offset <- getOffset
       clValue <- value
+      -- unfolding: https://datatracker.ietf.org/doc/html/rfc2425#section-5.8.1
+      clValues <- many $ try (eol *> char ' ' *> value)
       eol
-      pure $ VCContentLine (T.pack clName) maybeParam (VCValue (T.pack clValue) pos offset)
+
+      pure $ VCContentLine (T.pack clName) maybeParam (VCValue (T.pack . concat $ (clValue:clValues)) pos offset)
       -- <?> "contentline"
+
     name = some $ alphaNumChar <|> char '-' -- satisfy (\c -> c /= ':' && c /= ';') -- oneOf ['-', '.', ';', '=']
     value = many $ char ' ' <|> satisfy (\c -> ord c >= 0x21 && ord c <= 0x7e) --printChar
     group = name
