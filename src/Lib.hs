@@ -59,6 +59,7 @@ birthdayParser maybeExpectedYear = do
   month <- read <$> count 2 digitChar <?> "month"
   optional $ char '-'
   day <- read <$> count 2 digitChar <?> "day"
+  eof
 
   pure $ case maybeYear of
     Just year -> Full $ fromGregorian year month day
@@ -84,7 +85,12 @@ newtype Contact = Contact (Name, Birthday)
 type VCName = Text
 type VCParamName = Text
 type VCParamValue = Text
-type VCValue = Text
+data VCValue = VCValue
+  { valText :: Text
+  , valPos :: SourcePos
+  , valOffset :: Int
+  }
+ deriving Show
 
 data VCContentLine = VCContentLine
   { clName :: VCName
@@ -99,7 +105,7 @@ vcardParser = runMaybeT $ do
   MaybeT $ fmap Just $ string "BEGIN:VCARD" *> eol
   keyValues <- MaybeT $ fmap Just $ someTill contentline (string "END:VCARD" *> eol)
 
-  let (Just fName) = clValue <$> find ((== "FN") . clName) keyValues
+  let (Just fName) = valText . clValue <$> find ((== "FN") . clName) keyValues
   (bDayLine :: VCContentLine) <- MaybeT $ pure $ find ((== "BDAY") . clName) keyValues
   let { maybeBDayOmittedYear = do
     param <- clParam bDayLine
@@ -107,9 +113,23 @@ vcardParser = runMaybeT $ do
     readMaybe @Integer . T.unpack . snd $ param
   }
 
-  let bDayResult = parse (birthdayParser maybeBDayOmittedYear) "" (clValue bDayLine)
+  curPosState :: PosState Text <- fmap statePosState . MaybeT . fmap Just $ getParserState
+  let
+    bDayCLValue = clValue bDayLine
+    bDayParserState = State
+      { stateInput = valText bDayCLValue
+      , stateOffset = valOffset bDayCLValue
+      , statePosState = curPosState
+        { pstateInput = valText bDayCLValue
+        , pstateOffset = valOffset bDayCLValue
+        , pstateSourcePos = valPos bDayCLValue
+        }
+      , stateParseErrors = mempty
+      }
+    -- nested parser with correct error locations
+    -- https://old.reddit.com/r/haskell/comments/q7ytoj/is_there_a_good_way_to_run_an_inner_parser_with/hgnkc8r/
+    bDayResult = snd $ runParser' (birthdayParser maybeBDayOmittedYear) bDayParserState
   case bDayResult of
-    -- TODO adjust the error position according to the original parser
     Left errorBundle -> MaybeT . parseError . NE.head . bundleErrors $ errorBundle
     Right bDay -> pure $ Contact (Name fName, bDay)
 
@@ -124,9 +144,11 @@ vcardParser = runMaybeT $ do
         paramValue <- many safeChar
         pure (T.pack paramName, T.pack paramValue)
       char ':'
+      pos <- getSourcePos
+      offset <- getOffset
       clValue <- value
       eol
-      pure $ VCContentLine (T.pack clName) maybeParam (T.pack clValue)
+      pure $ VCContentLine (T.pack clName) maybeParam (VCValue (T.pack clValue) pos offset)
       -- <?> "contentline"
     name = some $ alphaNumChar <|> char '-' -- satisfy (\c -> c /= ':' && c /= ';') -- oneOf ['-', '.', ';', '=']
     value = many $ char ' ' <|> satisfy (\c -> ord c >= 0x21 && ord c <= 0x7e) --printChar
