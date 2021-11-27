@@ -32,6 +32,11 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , containers
+    , megaparsec
+    , text
+    , time
+    , transformers
   default-language: Haskell2010
 
 executable b2c-exe
@@ -44,6 +49,7 @@ executable b2c-exe
   build-depends:
       b2c
     , base >=4.7 && <5
+    , text
   default-language: Haskell2010
 
 test-suite b2c-test
@@ -57,4 +63,5 @@ test-suite b2c-test
   build-depends:
       b2c
     , base >=4.7 && <5
+    , text
   default-language: Haskell2010
