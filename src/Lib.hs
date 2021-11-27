@@ -4,10 +4,13 @@
 module Lib where
 
 import Control.Monad.Trans.Maybe
+import Data.Char (ord)
 import Data.Functor (void)
 import Data.List
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (catMaybes)
+import Data.Set (Set)
+import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Time.Calendar
@@ -62,13 +65,41 @@ birthdayParser maybeExpectedYear = do
 newtype Contact = Contact (Name, Birthday)
   deriving Show
 
+{-
+ - contentline  = [group "."] name *(";" param ) ":" value CRLF
+ - param        = param-name "=" param-value *("," param-value)
+ -
+ - [ "FN": (Just "Name", [])
+ - , "BDAY": (Just "19900101", [ "X-APPLE-OMIT-YEAR": ("1900", "1900-05-05") ])
+ - ]
+ -}
+
+--newtype ParamName = ParamName Text
+  --deriving Show
+
+--newtype Values = Values (Maybe Text, [ParamName
+
+type VCName = Text
+type VCParamName = Text
+type VCParamValue = Text
+type VCValue = Text
+
+data VCContentLine = VCContentLine
+  { clName :: VCName
+  , clParam :: Maybe (VCParamName, VCParamValue)
+  , clValue :: VCValue
+  }
+  deriving Show
+
 vcardParser :: Parser (Maybe Contact)
 vcardParser = runMaybeT $ do
   -- Parser () => Parser (Maybe ()) => MaybeT Parser ()
   MaybeT $ fmap Just $ string "BEGIN:VCARD" *> eol
   keyValues <- MaybeT $ fmap Just $ someTill contentline (string "END:VCARD" *> eol)
-  let (Just fName) = snd <$> find ((== "FN") . fst) keyValues
-  (bDay :: T.Text) <- MaybeT $ pure $ snd <$> find ((== "BDAY") . fst) keyValues
+
+  let (Just fName) = clValue <$> find ((== "FN") . clName) keyValues
+  (bDay :: T.Text) <- MaybeT $ pure $ clValue <$> find ((== "BDAY") . clName) keyValues
+
   let bDayResult = parse (birthdayParser Nothing) "" bDay
   case bDayResult of
     -- TODO adjust the error position according to the original parser
@@ -76,16 +107,28 @@ vcardParser = runMaybeT $ do
     Right bDay -> pure $ Contact (Name fName, bDay)
 
   where
-    contentline :: Parser (Text, Text)
+    contentline :: Parser VCContentLine
     contentline = do
-      name <- name
+      clName <- name
+      maybeParam <- optional $ do
+        char ';'
+        paramName <- name
+        char '='
+        paramValue <- many safeChar
+        pure (T.pack paramName, T.pack paramValue)
       char ':'
-      value <- value
+      clValue <- value
       eol
-      pure (T.pack name, T.pack value)
+      pure $ VCContentLine (T.pack clName) maybeParam (T.pack clValue)
       -- <?> "contentline"
-    name = some $ alphaNumChar <|> anySingleBut ':' -- oneOf ['-', '.', ';', '=']
-    value = many printChar
+    name = some $ alphaNumChar <|> char '-' -- satisfy (\c -> c /= ':' && c /= ';') -- oneOf ['-', '.', ';', '=']
+    value = many $ char ' ' <|> satisfy (\c -> ord c >= 0x21 && ord c <= 0x7e) --printChar
+    --   SAFE-CHAR    = WSP / %x21 / %x23-2B / %x2D-39 / %x3C-7E / NON-ASCII
+    --           ; Any character except CTLs, DQUOTE, ";", ":", ","
+    safeChar = satisfy (flip S.member safeCharSet . ord)
+
+safeCharSet :: Set Int
+safeCharSet = S.fromDistinctAscList $ concat [[ord ' ', 0x21], [0x23..0x2b], [0x2d..0x39], [0x3c..0x7e]]
 
 vcardsParser :: Parser [Contact]
 vcardsParser = do
