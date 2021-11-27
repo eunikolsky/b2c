@@ -138,7 +138,7 @@ vcardParser = runMaybeT $ do
     contentline = do
       optional . try $ group *> char '.'
       clName <- name
-      maybeParam <- optional $ do
+      maybeParam <- fmap safeHead . many $ do
         char ';'
         paramName <- name
         char '='
@@ -160,6 +160,9 @@ vcardParser = runMaybeT $ do
 
 safeCharSet :: Set Int
 safeCharSet = S.fromDistinctAscList $ concat [[ord ' ', 0x21], [0x23..0x2b], [0x2d..0x39], [0x3c..0x7e]]
+
+safeHead :: [a] -> Maybe a
+safeHead = fmap fst . uncons
 
 vcardsParser :: Parser [Contact]
 vcardsParser = do
