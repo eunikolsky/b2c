@@ -33,6 +33,7 @@ library:
     - megaparsec
     - time
     - transformers
+    - uuid
 
 executables:
   b2c-exe:
