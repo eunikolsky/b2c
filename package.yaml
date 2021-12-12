@@ -26,7 +26,10 @@ dependencies:
 library:
   source-dirs: src
   dependencies:
+    - bytestring
     - containers
+    - data-default
+    - iCalendar
     - megaparsec
     - time
     - transformers

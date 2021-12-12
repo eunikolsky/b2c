@@ -25,6 +25,7 @@ source-repository head
 
 library
   exposed-modules:
+      Cal
       Lib
   other-modules:
       Paths_b2c
@@ -32,7 +33,10 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , containers
+    , data-default
+    , iCalendar
     , megaparsec
     , text
     , time

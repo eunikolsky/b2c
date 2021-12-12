@@ -1,0 +1,3 @@
+[submodule "iCalendar"]
+	path = iCalendar
+	url = https://github.com/NorfairKing/iCalendar.git
