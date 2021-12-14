@@ -105,7 +105,10 @@ vcardParser :: Parser (Maybe Contact)
 vcardParser = do
   -- Parser () => Parser (Maybe ()) => MaybeT Parser ()
   string "BEGIN:VCARD" *> eol
-  --someTill contentline (string "END:VCARD" *> eol)
+  -- runParserT' :: Monad m => ParsecT e s m a -> State s e -> m (State s e, Either (ParseErrorBundle s e) a)
+  -- ( m = ContactState = Control.Monad.State ContactBuilder )
+  -- runParserT' @ContactState :: ParsecT e s ContactState a -> State s e -> ContactState (State s e, Either …)
+  someTill contentline (string "END:VCARD" *> eol)
   pure Nothing
 
   {-let (Just fName) = valText . clValue <$> find ((== "FN") . clName) keyValues
