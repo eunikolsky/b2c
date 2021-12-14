@@ -21,6 +21,7 @@ import Data.Time.Calendar
 import Data.Void
 import Text.Read (readMaybe)
 
+import Data.Default
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 
@@ -108,8 +109,15 @@ vcardParser = do
   -- runParserT' :: Monad m => ParsecT e s m a -> State s e -> m (State s e, Either (ParseErrorBundle s e) a)
   -- ( m = ContactState = Control.Monad.State ContactBuilder )
   -- runParserT' @ContactState :: ParsecT e s ContactState a -> State s e -> ContactState (State s e, Either …)
-  someTill contentline (string "END:VCARD" *> eol)
-  pure Nothing
+
+  -- runStateT :: StateT s m a -> s -> m (a, s)
+  -- runParser' :: Parsec e s a -> State s e -> (State s e, Either (ParseErrorBundle s e) a)
+  -- m = ContactState = Control.Monad.StateT ContactBuilder (Parsec e s)
+  -- runStateT (_ :: ContactState ()) :: ContactBuilder -> Parser ((), ContactBuilder)
+  -- execStateT (_ :: ContactState ()) :: ContactBuilder -> Parser ContactBuilder
+  -- FIXME restore `MaybeT`
+  (ContactBuilder { cbName = Just name, cbBirthday = Just birthday }) <- execStateT (someTill contentline (string "END:VCARD" *> eol)) def
+  pure . pure $ Contact (name, birthday)
 
   {-let (Just fName) = valText . clValue <$> find ((== "FN") . clName) keyValues
   (bDayLine :: VCContentLine) <- MaybeT $ pure $ find ((== "BDAY") . clName) keyValues
@@ -157,7 +165,7 @@ vcardParser = do
       case clName of
         "FN" -> do
           fn <- value
-          lift $ modify (\cb -> cb { cbName = Just . Name . T.pack $ fn })
+          modify (\cb -> cb { cbName = Just . Name . T.pack $ fn })
 
         "BDAY" -> do
           -- FIXME support birthday without year
@@ -166,7 +174,7 @@ vcardParser = do
           setParserState newState
           case bday of
             Left errorBundle -> parseError . NE.head . bundleErrors $ errorBundle
-            Right bday -> lift $ modify (\cb -> cb { cbBirthday = Just bday })
+            Right bday -> modify (\cb -> cb { cbBirthday = Just bday })
 
         _ -> do
           void value
@@ -183,7 +191,7 @@ vcardParser = do
     --           ; Any character except CTLs, DQUOTE, ";", ":", ","
     safeChar = satisfy (flip S.member safeCharSet . ord)
 
-type ContactParser = ParsecT Void Text (State ContactBuilder)
+type ContactParser = StateT ContactBuilder Parser
 
 data ContactBuilder = ContactBuilder
   { cbName :: Maybe Name
@@ -191,6 +199,8 @@ data ContactBuilder = ContactBuilder
   }
   deriving Show
 
+instance Default ContactBuilder where
+  def = ContactBuilder { cbName = Nothing, cbBirthday = Nothing }
 
 safeCharSet :: Set Int
 safeCharSet = S.fromDistinctAscList $ concat [[ord ' ', 0x21], [0x23..0x2b], [0x2d..0x39], [0x3c..0x7e]]
