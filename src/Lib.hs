@@ -60,7 +60,6 @@ birthdayParser maybeExpectedYear = do
   month <- read <$> count 2 digitChar <?> "month"
   optional $ char '-'
   day <- read <$> count 2 digitChar <?> "day"
-  eof
 
   pure $ case maybeYear of
     Just year -> Full $ fromGregorian year month day
@@ -129,7 +128,7 @@ vcardParser = runMaybeT $ do
       }
     -- nested parser with correct error locations
     -- https://old.reddit.com/r/haskell/comments/q7ytoj/is_there_a_good_way_to_run_an_inner_parser_with/hgnkc8r/
-    bDayResult = snd $ runParser' (birthdayParser maybeBDayOmittedYear) bDayParserState
+    bDayResult = snd $ runParser' (birthdayParser maybeBDayOmittedYear <* eof) bDayParserState
   case bDayResult of
     Left errorBundle -> MaybeT . parseError . NE.head . bundleErrors $ errorBundle
     Right bDay -> pure $ Contact (Name fName, bDay)
