@@ -5,6 +5,8 @@
 module Lib where
 
 import Control.Monad (guard)
+import Control.Monad.State.Strict
+import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe
 import Data.Char (ord)
 import Data.Functor (void)
@@ -19,7 +21,7 @@ import Data.Time.Calendar
 import Data.Void
 import Text.Read (readMaybe)
 
-import Text.Megaparsec
+import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 
 -- https://github.com/haskell/time/commit/c69d1bd9b06d809f69fec8504896d0834d91476e
@@ -100,20 +102,21 @@ data VCContentLine = VCContentLine
   deriving Show
 
 vcardParser :: Parser (Maybe Contact)
-vcardParser = runMaybeT $ do
+vcardParser = do
   -- Parser () => Parser (Maybe ()) => MaybeT Parser ()
-  MaybeT $ fmap Just $ string "BEGIN:VCARD" *> eol
-  keyValues <- MaybeT $ fmap Just $ someTill contentline (string "END:VCARD" *> eol)
+  string "BEGIN:VCARD" *> eol
+  --someTill contentline (string "END:VCARD" *> eol)
+  pure Nothing
 
-  let (Just fName) = valText . clValue <$> find ((== "FN") . clName) keyValues
+  {-let (Just fName) = valText . clValue <$> find ((== "FN") . clName) keyValues
   (bDayLine :: VCContentLine) <- MaybeT $ pure $ find ((== "BDAY") . clName) keyValues
   let { maybeBDayOmittedYear = do
     param <- clParam bDayLine
     guard $ fst param == "X-APPLE-OMIT-YEAR"
     readMaybe @Integer . T.unpack . snd $ param
-  }
+  }-}
 
-  curPosState :: PosState Text <- fmap statePosState . MaybeT . fmap Just $ getParserState
+  {-curPosState :: PosState Text <- fmap statePosState . MaybeT . fmap Just $ getParserState
   let
     bDayCLValue = clValue bDayLine
     bDayParserState = State
@@ -131,10 +134,11 @@ vcardParser = runMaybeT $ do
     bDayResult = snd $ runParser' (birthdayParser maybeBDayOmittedYear <* eof) bDayParserState
   case bDayResult of
     Left errorBundle -> MaybeT . parseError . NE.head . bundleErrors $ errorBundle
-    Right bDay -> pure $ Contact (Name fName, bDay)
+    Right bDay -> pure $ Contact (Name fName, bDay)-}
 
   where
-    contentline :: Parser VCContentLine
+    -- every content line is parsed, but modifies `ContactBuilder` instead of returning anything
+    contentline :: ContactParser ()
     contentline = do
       optional . try $ group *> char '.'
       clName <- name
@@ -145,15 +149,29 @@ vcardParser = runMaybeT $ do
         paramValue <- many safeChar
         pure (T.pack paramName, T.pack paramValue)
       char ':'
-      pos <- getSourcePos
-      offset <- getOffset
-      clValue <- value
-      -- unfolding: https://datatracker.ietf.org/doc/html/rfc2425#section-5.8.1
-      clValues <- many $ try (eol *> char ' ' *> value)
-      eol
+      --pos <- getSourcePos
+      --offset <- getOffset
+      case clName of
+        "FN" -> do
+          fn <- value
+          lift $ modify (\cb -> cb { cbName = Just . Name . T.pack $ fn })
 
-      pure $ VCContentLine (T.pack clName) maybeParam (VCValue (T.pack . concat $ (clValue:clValues)) pos offset)
-      -- <?> "contentline"
+        "BDAY" -> do
+          -- FIXME support birthday without year
+          state <- getParserState
+          let (newState, bday) = runParser' (birthdayParser Nothing) state
+          setParserState newState
+          case bday of
+            Left errorBundle -> parseError . NE.head . bundleErrors $ errorBundle
+            Right bday -> lift $ modify (\cb -> cb { cbBirthday = Just bday })
+
+        _ -> do
+          void value
+      -- FIXME unfolding: https://datatracker.ietf.org/doc/html/rfc2425#section-5.8.1
+      --clValues <- many $ try (eol *> char ' ' *> value)
+      void eol
+
+      --pure $ VCContentLine (T.pack clName) maybeParam (VCValue (T.pack . concat $ (clValue:clValues)) pos offset)
 
     name = some $ alphaNumChar <|> char '-' -- satisfy (\c -> c /= ':' && c /= ';') -- oneOf ['-', '.', ';', '=']
     value = many printChar
@@ -161,6 +179,15 @@ vcardParser = runMaybeT $ do
     --   SAFE-CHAR    = WSP / %x21 / %x23-2B / %x2D-39 / %x3C-7E / NON-ASCII
     --           ; Any character except CTLs, DQUOTE, ";", ":", ","
     safeChar = satisfy (flip S.member safeCharSet . ord)
+
+type ContactParser = ParsecT Void Text (State ContactBuilder)
+
+data ContactBuilder = ContactBuilder
+  { cbName :: Maybe Name
+  , cbBirthday :: Maybe Birthday
+  }
+  deriving Show
+
 
 safeCharSet :: Set Int
 safeCharSet = S.fromDistinctAscList $ concat [[ord ' ', 0x21], [0x23..0x2b], [0x2d..0x39], [0x3c..0x7e]]

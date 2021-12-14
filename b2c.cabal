@@ -38,6 +38,7 @@ library
     , data-default
     , iCalendar
     , megaparsec
+    , mtl
     , text
     , time
     , transformers
