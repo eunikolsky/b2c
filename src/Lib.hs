@@ -116,7 +116,9 @@ vcardParser = runMaybeT $ do
       case clName of
         "FN" -> do
           fn <- value
-          modify (\cb -> cb { cbName = Just . Name . T.pack $ fn })
+          -- unfolding: https://datatracker.ietf.org/doc/html/rfc2425#section-5.8.1
+          fnParts <- many $ try (eol *> char ' ' *> value)
+          modify (\cb -> cb { cbName = Just . Name . T.pack . concat $ (fn:fnParts) })
 
         "BDAY" -> do
           let { maybeBDayOmittedYear = do
@@ -125,14 +127,16 @@ vcardParser = runMaybeT $ do
             readMaybe @Integer . T.unpack . snd $ param
           }
 
+          -- TODO support unfolding when parsing birthday value
           bday <- lift $ birthdayParser maybeBDayOmittedYear
           modify (\cb -> cb { cbBirthday = Just bday })
 
         _ -> do
-          void value
-      -- FIXME unfolding: https://datatracker.ietf.org/doc/html/rfc2425#section-5.8.1
-      --clValues <- many $ try (eol *> char ' ' *> value)
+          value >> (skipMany $ try (eol *> char ' ' *> value))
       void eol
+
+    --unfoldableValue :: (Monad m, Token s ~ Char) => m [Token s]
+    --unfoldableValue = many printChar
 
     name = some $ alphaNumChar <|> char '-' -- satisfy (\c -> c /= ':' && c /= ';') -- oneOf ['-', '.', ';', '=']
     value = many printChar
