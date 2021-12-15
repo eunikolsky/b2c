@@ -103,9 +103,9 @@ data VCContentLine = VCContentLine
   deriving Show
 
 vcardParser :: Parser (Maybe Contact)
-vcardParser = do
+vcardParser = runMaybeT $ do
   -- Parser () => Parser (Maybe ()) => MaybeT Parser ()
-  string "BEGIN:VCARD" *> eol
+  lift $ string "BEGIN:VCARD" *> eol
   -- runParserT' :: Monad m => ParsecT e s m a -> State s e -> m (State s e, Either (ParseErrorBundle s e) a)
   -- ( m = ContactState = Control.Monad.State ContactBuilder )
   -- runParserT' @ContactState :: ParsecT e s ContactState a -> State s e -> ContactState (State s e, Either …)
@@ -115,9 +115,12 @@ vcardParser = do
   -- m = ContactState = Control.Monad.StateT ContactBuilder (Parsec e s)
   -- runStateT (_ :: ContactState ()) :: ContactBuilder -> Parser ((), ContactBuilder)
   -- execStateT (_ :: ContactState ()) :: ContactBuilder -> Parser ContactBuilder
-  -- FIXME restore `MaybeT`
-  (ContactBuilder { cbName = Just name, cbBirthday = Just birthday }) <- execStateT (someTill contentline (string "END:VCARD" *> eol)) def
-  pure . pure $ Contact (name, birthday)
+  (ContactBuilder { cbName = Just name, cbBirthday = maybeBirthday :: Maybe Birthday })
+    <- lift $ execStateT (someTill contentline (string "END:VCARD" *> eol)) def
+  -- _ :: Maybe Birthday -> MaybeT Parser Birthday
+  -- MaybeT :: m (Maybe a) -> MaybeT m a
+  birthday :: Birthday <- MaybeT $ pure maybeBirthday
+  pure $ Contact (name, birthday)
 
   {-let (Just fName) = valText . clValue <$> find ((== "FN") . clName) keyValues
   (bDayLine :: VCContentLine) <- MaybeT $ pure $ find ((== "BDAY") . clName) keyValues
