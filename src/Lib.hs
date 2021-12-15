@@ -122,34 +122,6 @@ vcardParser = runMaybeT $ do
   birthday :: Birthday <- MaybeT $ pure maybeBirthday
   pure $ Contact (name, birthday)
 
-  {-let (Just fName) = valText . clValue <$> find ((== "FN") . clName) keyValues
-  (bDayLine :: VCContentLine) <- MaybeT $ pure $ find ((== "BDAY") . clName) keyValues
-  let { maybeBDayOmittedYear = do
-    param <- clParam bDayLine
-    guard $ fst param == "X-APPLE-OMIT-YEAR"
-    readMaybe @Integer . T.unpack . snd $ param
-  }-}
-
-  {-curPosState :: PosState Text <- fmap statePosState . MaybeT . fmap Just $ getParserState
-  let
-    bDayCLValue = clValue bDayLine
-    bDayParserState = State
-      { stateInput = valText bDayCLValue
-      , stateOffset = valOffset bDayCLValue
-      , statePosState = curPosState
-        { pstateInput = valText bDayCLValue
-        , pstateOffset = valOffset bDayCLValue
-        , pstateSourcePos = valPos bDayCLValue
-        }
-      , stateParseErrors = mempty
-      }
-    -- nested parser with correct error locations
-    -- https://old.reddit.com/r/haskell/comments/q7ytoj/is_there_a_good_way_to_run_an_inner_parser_with/hgnkc8r/
-    bDayResult = snd $ runParser' (birthdayParser maybeBDayOmittedYear <* eof) bDayParserState
-  case bDayResult of
-    Left errorBundle -> MaybeT . parseError . NE.head . bundleErrors $ errorBundle
-    Right bDay -> pure $ Contact (Name fName, bDay)-}
-
   where
     -- every content line is parsed, but modifies `ContactBuilder` instead of returning anything
     contentline :: ContactParser ()
@@ -171,8 +143,13 @@ vcardParser = runMaybeT $ do
           modify (\cb -> cb { cbName = Just . Name . T.pack $ fn })
 
         "BDAY" -> do
-          -- FIXME support birthday without year
-          bday <- lift $ birthdayParser Nothing
+          let { maybeBDayOmittedYear = do
+            param <- maybeParam
+            guard $ fst param == "X-APPLE-OMIT-YEAR"
+            readMaybe @Integer . T.unpack . snd $ param
+          }
+
+          bday <- lift $ birthdayParser maybeBDayOmittedYear
           modify (\cb -> cb { cbBirthday = Just bday })
 
         _ -> do
