@@ -172,12 +172,8 @@ vcardParser = runMaybeT $ do
 
         "BDAY" -> do
           -- FIXME support birthday without year
-          state <- getParserState
-          let (newState, bday) = runParser' (birthdayParser Nothing) state
-          setParserState newState
-          case bday of
-            Left errorBundle -> parseError . NE.head . bundleErrors $ errorBundle
-            Right bday -> modify (\cb -> cb { cbBirthday = Just bday })
+          bday <- lift $ birthdayParser Nothing
+          modify (\cb -> cb { cbBirthday = Just bday })
 
         _ -> do
           void value
