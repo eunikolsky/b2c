@@ -80,28 +80,6 @@ newtype Contact = Contact (Name, Birthday)
  - ]
  -}
 
---newtype ParamName = ParamName Text
-  --deriving Show
-
---newtype Values = Values (Maybe Text, [ParamName
-
-type VCName = Text
-type VCParamName = Text
-type VCParamValue = Text
-data VCValue = VCValue
-  { valText :: Text
-  , valPos :: SourcePos
-  , valOffset :: Int
-  }
- deriving Show
-
-data VCContentLine = VCContentLine
-  { clName :: VCName
-  , clParam :: Maybe (VCParamName, VCParamValue)
-  , clValue :: VCValue
-  }
-  deriving Show
-
 vcardParser :: Parser (Maybe Contact)
 vcardParser = runMaybeT $ do
   -- Parser () => Parser (Maybe ()) => MaybeT Parser ()
@@ -135,8 +113,6 @@ vcardParser = runMaybeT $ do
         paramValue <- many safeChar
         pure (T.pack paramName, T.pack paramValue)
       char ':'
-      --pos <- getSourcePos
-      --offset <- getOffset
       case clName of
         "FN" -> do
           fn <- value
@@ -157,8 +133,6 @@ vcardParser = runMaybeT $ do
       -- FIXME unfolding: https://datatracker.ietf.org/doc/html/rfc2425#section-5.8.1
       --clValues <- many $ try (eol *> char ' ' *> value)
       void eol
-
-      --pure $ VCContentLine (T.pack clName) maybeParam (VCValue (T.pack . concat $ (clValue:clValues)) pos offset)
 
     name = some $ alphaNumChar <|> char '-' -- satisfy (\c -> c /= ':' && c /= ';') -- oneOf ['-', '.', ';', '=']
     value = many printChar
