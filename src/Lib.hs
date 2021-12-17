@@ -13,7 +13,7 @@ import Data.Functor (void)
 import Data.List
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (catMaybes)
-import Data.Monoid (Last(..), getLast)
+import Data.Monoid (Any(..), Last(..), getAny, getLast)
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Text (Text)
@@ -94,8 +94,13 @@ vcardParser = runMaybeT $ do
   -- m = ContactState = Control.Monad.StateT ContactBuilder (Parsec e s)
   -- runStateT (_ :: ContactState ()) :: ContactBuilder -> Parser ((), ContactBuilder)
   -- execStateT (_ :: ContactState ()) :: ContactBuilder -> Parser ContactBuilder
-  (ContactBuilder { cbName = Just name, cbBirthday = maybeBirthday :: Maybe Birthday })
+  ContactBuilder
+    { cbName = Just name
+    , cbBirthday = maybeBirthday :: Maybe Birthday
+    , cbVersionCorrect = versionCorrect
+    }
     <- lift $ execWriterT (someTill contentline (string "END:VCARD" *> eol))
+  guard versionCorrect
   -- _ :: Maybe Birthday -> MaybeT Parser Birthday
   -- MaybeT :: m (Maybe a) -> MaybeT m a
   birthday :: Birthday <- MaybeT $ pure maybeBirthday
@@ -120,6 +125,10 @@ vcardParser = runMaybeT $ do
           -- unfolding: https://datatracker.ietf.org/doc/html/rfc2425#section-5.8.1
           fnParts <- many $ try (eol *> char ' ' *> value)
           tell $ mempty { cbName = Just . Name . T.pack . concat $ (fn:fnParts) }
+
+        "VERSION" -> do
+          string "3.0"
+          tell $ mempty { cbVersionCorrect = True }
 
         "BDAY" -> do
           let { maybeBDayOmittedYear = do
@@ -151,17 +160,25 @@ type ContactParser = WriterT ContactBuilder Parser
 data ContactBuilder = ContactBuilder
   { cbName :: Maybe Name
   , cbBirthday :: Maybe Birthday
+  , cbVersionCorrect :: Bool -- whether "VERSION:3.0" is present, required for all vCards
   }
   deriving Show
 
 instance Semigroup ContactBuilder where
-  ContactBuilder lName lBirthday <> ContactBuilder rName rBirthday = ContactBuilder
-    { cbName = getLast $ foldMap Last [lName, rName]
-    , cbBirthday = getLast $ foldMap Last [lBirthday, rBirthday]
-    }
+  ContactBuilder lName lBirthday lVersionCorrect
+    <> ContactBuilder rName rBirthday rVersionCorrect
+    = ContactBuilder
+      { cbName = getLast $ foldMap Last [lName, rName]
+      , cbBirthday = getLast $ foldMap Last [lBirthday, rBirthday]
+      , cbVersionCorrect = getAny $ foldMap Any [lVersionCorrect, rVersionCorrect]
+      }
 
 instance Monoid ContactBuilder where
-  mempty = ContactBuilder { cbName = Nothing, cbBirthday = Nothing }
+  mempty = ContactBuilder
+    { cbName = Nothing
+    , cbBirthday = Nothing
+    , cbVersionCorrect = False
+    }
 
 safeCharSet :: Set Int
 safeCharSet = S.fromDistinctAscList $ concat [[ord ' ', 0x21], [0x23..0x2b], [0x2d..0x39], [0x3c..0x7e]]
