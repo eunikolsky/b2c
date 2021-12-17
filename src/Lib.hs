@@ -5,14 +5,15 @@
 module Lib where
 
 import Control.Monad (guard)
-import Control.Monad.State.Strict
 import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe
+import Control.Monad.Writer.Strict
 import Data.Char (ord)
 import Data.Functor (void)
 import Data.List
 import qualified Data.List.NonEmpty as NE
 import Data.Maybe (catMaybes)
+import Data.Monoid (Last(..), getLast)
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Text (Text)
@@ -94,7 +95,7 @@ vcardParser = runMaybeT $ do
   -- runStateT (_ :: ContactState ()) :: ContactBuilder -> Parser ((), ContactBuilder)
   -- execStateT (_ :: ContactState ()) :: ContactBuilder -> Parser ContactBuilder
   (ContactBuilder { cbName = Just name, cbBirthday = maybeBirthday :: Maybe Birthday })
-    <- lift $ execStateT (someTill contentline (string "END:VCARD" *> eol)) def
+    <- lift $ execWriterT (someTill contentline (string "END:VCARD" *> eol))
   -- _ :: Maybe Birthday -> MaybeT Parser Birthday
   -- MaybeT :: m (Maybe a) -> MaybeT m a
   birthday :: Birthday <- MaybeT $ pure maybeBirthday
@@ -118,7 +119,7 @@ vcardParser = runMaybeT $ do
           fn <- value
           -- unfolding: https://datatracker.ietf.org/doc/html/rfc2425#section-5.8.1
           fnParts <- many $ try (eol *> char ' ' *> value)
-          modify (\cb -> cb { cbName = Just . Name . T.pack . concat $ (fn:fnParts) })
+          tell $ ContactBuilder { cbName = Just . Name . T.pack . concat $ (fn:fnParts), cbBirthday = def }
 
         "BDAY" -> do
           let { maybeBDayOmittedYear = do
@@ -129,7 +130,7 @@ vcardParser = runMaybeT $ do
 
           -- TODO support unfolding when parsing birthday value
           bday <- lift $ birthdayParser maybeBDayOmittedYear
-          modify (\cb -> cb { cbBirthday = Just bday })
+          tell $ ContactBuilder { cbBirthday = Just bday, cbName = def }
 
         _ -> do
           value >> (skipMany $ try (eol *> char ' ' *> value))
@@ -145,7 +146,7 @@ vcardParser = runMaybeT $ do
     --           ; Any character except CTLs, DQUOTE, ";", ":", ","
     safeChar = satisfy (flip S.member safeCharSet . ord)
 
-type ContactParser = StateT ContactBuilder Parser
+type ContactParser = WriterT ContactBuilder Parser
 
 data ContactBuilder = ContactBuilder
   { cbName :: Maybe Name
@@ -153,8 +154,14 @@ data ContactBuilder = ContactBuilder
   }
   deriving Show
 
-instance Default ContactBuilder where
-  def = ContactBuilder { cbName = Nothing, cbBirthday = Nothing }
+instance Semigroup ContactBuilder where
+  ContactBuilder lName lBirthday <> ContactBuilder rName rBirthday = ContactBuilder
+    { cbName = getLast $ foldMap Last [lName, rName]
+    , cbBirthday = getLast $ foldMap Last [lBirthday, rBirthday]
+    }
+
+instance Monoid ContactBuilder where
+  mempty = ContactBuilder { cbName = Nothing, cbBirthday = Nothing }
 
 safeCharSet :: Set Int
 safeCharSet = S.fromDistinctAscList $ concat [[ord ' ', 0x21], [0x23..0x2b], [0x2d..0x39], [0x3c..0x7e]]
