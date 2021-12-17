@@ -100,7 +100,9 @@ vcardParser = runMaybeT $ do
     , cbVersionCorrect = versionCorrect
     }
     <- lift $ execWriterT (someTill contentline (string "END:VCARD" *> eol))
-  lift $ guard versionCorrect
+  -- TODO this reports an error on the next line after the "END:VCARD"; ideally
+  -- it should do that on that line
+  lift $ unless versionCorrect $ fail "vCard must have a VERSION"
   -- _ :: Maybe Birthday -> MaybeT Parser Birthday
   -- MaybeT :: m (Maybe a) -> MaybeT m a
   birthday :: Birthday <- MaybeT $ pure maybeBirthday
