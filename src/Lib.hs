@@ -98,9 +98,12 @@ vcardParser = runMaybeT $ do
     { cbName = Just name
     , cbBirthday = maybeBirthday :: Maybe Birthday
     , cbVersionCorrect = versionCorrect
+    , cbNameComponentsPresent = nameComponentsPresent
     }
     <- lift $ execWriterT (someTill contentline (string "END:VCARD"))
-  lift $ unless versionCorrect $ fail "vCard must have a VERSION"
+  lift $ do
+    unless versionCorrect $ fail "vCard must have a VERSION"
+    unless nameComponentsPresent $ fail "vCard must have the N type"
   -- `eol` parsing is related to "END:VCARD" but happens after verifying
   -- `versionCorrect` because if it's not, the parser should report the error
   -- on that line
@@ -135,6 +138,10 @@ vcardParser = runMaybeT $ do
           string "3.0"
           tell $ mempty { cbVersionCorrect = True }
 
+        "N" -> do
+          value >> (skipMany $ try (eol *> char ' ' *> value))
+          tell $ mempty { cbNameComponentsPresent = True }
+
         "BDAY" -> do
           let { maybeBDayOmittedYear = do
             param <- maybeParam
@@ -166,16 +173,18 @@ data ContactBuilder = ContactBuilder
   { cbName :: Maybe Name
   , cbBirthday :: Maybe Birthday
   , cbVersionCorrect :: Bool -- whether "VERSION:3.0" is present, required for all vCards
+  , cbNameComponentsPresent :: Bool -- whether the "N" type is present, required for all vCards
   }
   deriving Show
 
 instance Semigroup ContactBuilder where
-  ContactBuilder lName lBirthday lVersionCorrect
-    <> ContactBuilder rName rBirthday rVersionCorrect
+  ContactBuilder lName lBirthday lVersionCorrect lNameComponentsPresent
+    <> ContactBuilder rName rBirthday rVersionCorrect rNameComponentsPresent
     = ContactBuilder
       { cbName = getLast $ foldMap Last [lName, rName]
       , cbBirthday = getLast $ foldMap Last [lBirthday, rBirthday]
       , cbVersionCorrect = getAny $ foldMap Any [lVersionCorrect, rVersionCorrect]
+      , cbNameComponentsPresent = getAny $ foldMap Any [lNameComponentsPresent, rNameComponentsPresent]
       }
 
 instance Monoid ContactBuilder where
@@ -183,6 +192,7 @@ instance Monoid ContactBuilder where
     { cbName = Nothing
     , cbBirthday = Nothing
     , cbVersionCorrect = False
+    , cbNameComponentsPresent = False
     }
 
 safeCharSet :: Set Int
