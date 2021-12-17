@@ -119,7 +119,7 @@ vcardParser = runMaybeT $ do
           fn <- value
           -- unfolding: https://datatracker.ietf.org/doc/html/rfc2425#section-5.8.1
           fnParts <- many $ try (eol *> char ' ' *> value)
-          tell $ ContactBuilder { cbName = Just . Name . T.pack . concat $ (fn:fnParts), cbBirthday = def }
+          tell $ mempty { cbName = Just . Name . T.pack . concat $ (fn:fnParts) }
 
         "BDAY" -> do
           let { maybeBDayOmittedYear = do
@@ -130,7 +130,7 @@ vcardParser = runMaybeT $ do
 
           -- TODO support unfolding when parsing birthday value
           bday <- lift $ birthdayParser maybeBDayOmittedYear
-          tell $ ContactBuilder { cbBirthday = Just bday, cbName = def }
+          tell $ mempty { cbBirthday = Just bday }
 
         _ -> do
           value >> (skipMany $ try (eol *> char ' ' *> value))
