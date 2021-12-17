@@ -100,7 +100,7 @@ vcardParser = runMaybeT $ do
     , cbVersionCorrect = versionCorrect
     }
     <- lift $ execWriterT (someTill contentline (string "END:VCARD" *> eol))
-  guard versionCorrect
+  lift $ guard versionCorrect
   -- _ :: Maybe Birthday -> MaybeT Parser Birthday
   -- MaybeT :: m (Maybe a) -> MaybeT m a
   birthday :: Birthday <- MaybeT $ pure maybeBirthday
