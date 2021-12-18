@@ -100,7 +100,7 @@ vcardParser = runMaybeT $ do
     , cbVersionCorrect = versionCorrect
     , cbNameComponentsPresent = nameComponentsPresent
     }
-    <- lift $ execWriterT (someTill contentline (string "END:VCARD"))
+    <- lift $ execWriterT (skipSomeTill contentline (string "END:VCARD"))
   lift $ do
     unless versionCorrect $ fail "vCard must have a VERSION"
     unless nameComponentsPresent $ fail "vCard must have the N type"
