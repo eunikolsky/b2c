@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Cal
+module Calendar
   ( calendarData
   ) where
 

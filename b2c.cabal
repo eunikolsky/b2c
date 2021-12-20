@@ -25,7 +25,7 @@ source-repository head
 
 library
   exposed-modules:
-      Cal
+      Calendar
       Types
       VCard
   other-modules:
