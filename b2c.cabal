@@ -27,6 +27,7 @@ library
   exposed-modules:
       Cal
       Lib
+      Types
   other-modules:
       Paths_b2c
   hs-source-dirs:

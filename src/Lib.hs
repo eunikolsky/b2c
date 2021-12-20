@@ -26,23 +26,9 @@ import Data.Default
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 
--- https://github.com/haskell/time/commit/c69d1bd9b06d809f69fec8504896d0834d91476e
--- #if !MIN_VERSION_time(1,11,0)
--- `#if` doesn't work: `error on input ‘#’`
-type Year = Integer
-type MonthOfYear = Int
-type DayOfMonth = Int
--- #endif
+import Types (Birthday(..), Contact(..), Name(..), Year)
 
 type Parser = Parsec Void Text
-
-newtype Name = Name Text
-  deriving Show
-
-data Birthday
-  = Full Day
-  | Partial MonthOfYear DayOfMonth
-  deriving Show
 
 -- If a year is passed, it should be parsed and will then be ignored because
 -- it's known to be a placeholder. The vCard property looks like this:
@@ -68,9 +54,6 @@ birthdayParser maybeExpectedYear = do
   pure $ case maybeYear of
     Just year -> Full $ fromGregorian year month day
     Nothing -> Partial month day
-
-newtype Contact = Contact (Name, Birthday)
-  deriving Show
 
 {-
  - contentline  = [group "."] name *(";" param ) ":" value CRLF

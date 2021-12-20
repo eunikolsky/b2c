@@ -2,7 +2,7 @@
 
 module Cal where
 
-import Lib (Birthday(..), Contact(..), Name(..), Year)
+import Types (Birthday(..), Contact(..), Name(..), Year)
 
 import qualified Data.ByteString.Lazy as BSL
 import Data.Functor ((<&>))
