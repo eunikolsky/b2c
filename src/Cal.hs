@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Cal where
+module Cal
+  ( calendarData
+  ) where
 
 import Types (Birthday(..), Contact(..), Name(..), Year)
 
@@ -17,12 +19,6 @@ import Data.Default
 import Data.UUID
 import Data.UUID.V4
 import Text.ICalendar hiding (Contact)
-
-sampleContacts :: [Contact]
-sampleContacts =
-  [ Contact (Name "Zaphod Bebblebrox", Partial 12 31)
-  , Contact (Name "Адам Форд", Full $ fromGregorian 1980 11 11)
-  ]
 
 -- |Alarm stays the same for all events. (But need to verify that an `empty`
 -- |description works fine.)
