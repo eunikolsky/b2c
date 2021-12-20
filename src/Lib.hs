@@ -4,14 +4,10 @@
 
 module Lib where
 
-import Control.Monad (guard)
-import Control.Monad.Trans (lift)
 import Control.Monad.Trans.Maybe
 import Control.Monad.Writer.Strict
 import Data.Char (ord)
-import Data.Functor (void)
 import Data.List
-import qualified Data.List.NonEmpty as NE
 import Data.Maybe (catMaybes)
 import Data.Monoid (Any(..), Last(..), getAny, getLast)
 import Data.Set (Set)
@@ -19,11 +15,10 @@ import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Time.Calendar
-import Data.Void
+import Data.Void (Void)
 import Text.Read (readMaybe)
 
-import Data.Default
-import Text.Megaparsec hiding (State)
+import Text.Megaparsec
 import Text.Megaparsec.Char
 
 import Types (Birthday(..), Contact(..), Name(..), Year)
