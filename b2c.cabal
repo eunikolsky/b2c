@@ -26,8 +26,8 @@ source-repository head
 library
   exposed-modules:
       Cal
-      Lib
       Types
+      VCard
   other-modules:
       Paths_b2c
   hs-source-dirs:
