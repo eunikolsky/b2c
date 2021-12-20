@@ -2,7 +2,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Lib where
+module Lib
+  ( vcardsParser
+  ) where
 
 import Control.Monad.Trans.Maybe
 import Control.Monad.Writer.Strict
@@ -183,6 +185,3 @@ vcardsParser :: Parser [Contact]
 vcardsParser = do
   vcards <- some vcardParser <* eof
   pure $ catMaybes vcards
-
-someFunc :: IO ()
-someFunc = putStrLn "someFunc"
