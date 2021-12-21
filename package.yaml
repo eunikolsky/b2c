@@ -57,3 +57,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - b2c
+    - hspec
+    - mtl
