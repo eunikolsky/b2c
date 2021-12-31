@@ -46,6 +46,7 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - b2c
+    - bytestring
 
 tests:
   b2c-test:
