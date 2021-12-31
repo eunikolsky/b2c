@@ -1,6 +1,8 @@
 module Main where
 
-import VCard
+import qualified Data.Text.IO as T (getContents)
+
+import Lib (printB2C)
 
 main :: IO ()
-main = pure ()
+main = T.getContents >>= printB2C
