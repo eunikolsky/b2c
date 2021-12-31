@@ -51,11 +51,14 @@ tests:
   b2c-test:
     main:                Spec.hs
     source-dirs:         test
+    extra-source-files:  test/contacts.vcf
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
     - b2c
+    - filepath
+    - directory
     - hspec
     - mtl

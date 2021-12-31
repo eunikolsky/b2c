@@ -71,6 +71,8 @@ test-suite b2c-test
   build-depends:
       b2c
     , base >=4.7 && <5
+    , directory
+    , filepath
     , hspec
     , mtl
     , text
