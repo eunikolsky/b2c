@@ -37,7 +37,7 @@ library:
     - uuid
 
 executables:
-  b2c-exe:
+  b2c:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
