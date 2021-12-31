@@ -71,9 +71,11 @@ test-suite b2c-test
   build-depends:
       b2c
     , base >=4.7 && <5
+    , data-default
     , directory
     , filepath
     , hspec
+    , iCalendar
     , mtl
     , text
   default-language: Haskell2010

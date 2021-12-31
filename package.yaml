@@ -59,6 +59,8 @@ tests:
     dependencies:
     - b2c
     - filepath
+    - data-default
     - directory
     - hspec
+    - iCalendar
     - mtl

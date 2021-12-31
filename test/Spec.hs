@@ -2,11 +2,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import Data.Either (isLeft, isRight)
+import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import System.Directory
 import System.FilePath
 
+import Data.Default
 import Test.Hspec
+import Text.ICalendar.Parser
+import Text.ICalendar.Types
 
 import Lib (b2c)
 
@@ -26,7 +30,11 @@ main = hspec $ do
       if exists
         then do
           vcf <- T.readFile contactsFile
-          b2c vcf >>= (`shouldSatisfy` isRight)
+          let birthdaysCount = length $ filter ("BDAY" `T.isPrefixOf`) $ T.lines vcf
+          (Right icalBytes) <- b2c vcf
+          let Right ([vcalendar], _) = parseICalendar def "" icalBytes
+          let eventsCount = length (vcEvents vcalendar)
+          eventsCount `shouldBe` birthdaysCount
         else putStrLn $ "Test file " <> contactsFile <> " not found; skipping the test"
 
     it "returns Left for an invalid vCard" $
