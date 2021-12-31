@@ -1,2 +1,4 @@
 .stack-work/
 *~
+/1.vcal
+/test/contacts.vcf
